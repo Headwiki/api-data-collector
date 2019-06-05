@@ -2,17 +2,18 @@ use serde::{Deserialize};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-  global: Global,
   pub apis: Vec<Api>
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Global {
-  interval: i32
+#[derive(Clone, Deserialize, Debug)]
+pub struct Api {
+  pub name: String,
+  pub url: String,
+  pub interval: u32
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Api {
-  name: String,
-  pub url: String
+#[derive(Debug)]
+pub struct Job {
+  pub interval: u32,
+  pub apis: Vec<Api>
 }

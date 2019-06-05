@@ -1,19 +1,19 @@
 {
-  "global": {
-    "interval": 10
-  },
   "apis": [
     { 
       "name": "DigitalOcean1",
-      "url": "https://httpbin.org/ip" 
+      "url": "https://httpbin.org/ip",
+      "interval": 10
     },
     { 
       "name": "DigitalOcean2",
-      "url": "http://2.com" 
+      "url": "http://2.com",
+      "interval": 30
     },
     { 
       "name": "DigitalOcean3",
-      "url": "http://3.com" 
+      "url": "http://3.com",
+      "interval": 10
     }
   ]
 }
