@@ -39,7 +39,20 @@ fn main() {
   }
 
 
-  println!("{:?}", jobs);
+  //println!("{:?}", jobs);
+  let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
+
+  for job in jobs {
+    threads.push(
+      thread::spawn(move || {
+        println!("Got interval of: {}", job.interval);
+      })
+    );
+  }
+
+  for handle in threads {
+    handle.join().unwrap();
+  }
 
 /*   // Connect to MongoDB
   let client = Client::connect("localhost", 27017)
