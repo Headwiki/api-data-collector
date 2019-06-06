@@ -10,6 +10,8 @@ use mongodb::{Client, ThreadedClient};
 use mongodb::db::ThreadedDatabase;
 
 use std::thread;
+use std::sync::mpsc;
+
 
 fn main() {
 
@@ -24,7 +26,7 @@ fn main() {
   //println!("{:?}", get(&config.apis[0].url).unwrap());
 
   let mut jobs: Vec<Job> = Vec::new();
-
+  let (tx, rx): (mpsc::Sender<config::Api>, mpsc::Receiver<config::Api>) = mpsc::channel();
    // Populate vector of jobs
   'apis: for api in &config.apis {  
     for job in &mut jobs {
@@ -34,24 +36,31 @@ fn main() {
         break 'apis;
       }
     }
+      let new_sender = mpsc::Sender::clone(&tx);
       // Add new job with new interval
-      jobs.push(Job{ interval: api.interval, apis: vec![api.to_owned()] });
+      jobs.push(Job{ interval: api.interval, sender: new_sender, apis: vec![api.to_owned()] });
   }
 
 
   //println!("{:?}", jobs);
+
+
   let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
 
   for job in jobs {
     threads.push(
       thread::spawn(move || {
-        println!("Got interval of: {}", job.interval);
+        //println!("Got interval of: {}", job.interval);
+        job.sender.send(job.apis[0].to_owned()).unwrap();
       })
     );
   }
 
-  for handle in threads {
+  /* for handle in threads {
     handle.join().unwrap();
+  } */
+  for received in rx {
+    println!("Got: {:?}", received);
   }
 
 /*   // Connect to MongoDB
