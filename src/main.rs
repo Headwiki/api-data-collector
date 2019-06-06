@@ -23,10 +23,12 @@ fn main() {
     serde_json::from_str(&contents).expect("JSON was not well-formatted");
 
   println!("{:?}", config);
-  //println!("{:?}", get(&config.apis[0].url).unwrap());
 
   let mut jobs: Vec<Job> = Vec::new();
+
+  // Create channel where jobs will send their data to receiver(main thread)
   let (tx, rx): (mpsc::Sender<config::Api>, mpsc::Receiver<config::Api>) = mpsc::channel();
+
    // Populate vector of jobs
   'apis: for api in &config.apis {  
     for job in &mut jobs {
@@ -36,29 +38,27 @@ fn main() {
         break 'apis;
       }
     }
+      // Create a transmitter/sender which the job will use to send data outside of its own thread
       let new_sender = mpsc::Sender::clone(&tx);
-      // Add new job with new interval
+
+      // Add new job
       jobs.push(Job{ interval: api.interval, sender: new_sender, apis: vec![api.to_owned()] });
   }
 
-
-  //println!("{:?}", jobs);
-
-
+  // Vector to hold the threads (might not be necessary)
   let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
 
+  // Generate a thread per job
   for job in jobs {
     threads.push(
       thread::spawn(move || {
-        //println!("Got interval of: {}", job.interval);
+        // Send 'api' data to receiver (as test for now)
         job.sender.send(job.apis[0].to_owned()).unwrap();
       })
     );
   }
 
-  /* for handle in threads {
-    handle.join().unwrap();
-  } */
+  // Continuously listen for data from transitters/senders
   for received in rx {
     println!("Got: {:?}", received);
   }
