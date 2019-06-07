@@ -7,12 +7,12 @@
     },
     { 
       "name": "DigitalOcean2",
-      "url": "http://2.com",
+      "url": "https://httpbin.org/ip",
       "interval": 30
     },
     { 
       "name": "DigitalOcean3",
-      "url": "http://3.com",
+      "url": "https://httpbin.org/ip",
       "interval": 10
     }
   ]

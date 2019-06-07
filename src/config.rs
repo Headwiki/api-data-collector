@@ -1,6 +1,7 @@
 use serde::{Deserialize};
+use serde_json::{Value};
 use std::sync::mpsc::Sender;
-use std::time::SystemTime;
+use chrono::prelude::*;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -23,6 +24,6 @@ pub struct Job {
 
 #[derive(Debug)]
 pub struct JobResult {
-  pub api: Api,
-  pub time: SystemTime
+  pub api_data: Value,
+  pub time: DateTime<Utc>
 }

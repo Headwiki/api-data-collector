@@ -12,6 +12,7 @@ use mongodb::db::ThreadedDatabase;
 use std::thread;
 use std::sync::mpsc;
 use std::time::{Duration, Instant, SystemTime};
+use chrono::prelude::*;
 
 use futures::Future;
 use reqwest::r#async::{Client, Response};
@@ -92,9 +93,17 @@ fn main() {
         // Send 'api' data to receiver (as test for now)
         //job.sender.send(job.apis[0].to_owned()).unwrap();
         loop {
-          let job_result = config::JobResult{ api: job.apis[0].to_owned(), time: SystemTime::now() };
-          job.sender.send(job_result);
-          thread::sleep(Duration::from_secs(job.interval))
+          for api in job.apis.to_owned() {
+            let response = get(&api.url);
+            match response {
+              Ok(data) => {
+                let job_result = config::JobResult{ api_data: data, time: Utc::now() };
+                job.sender.send(job_result);
+              },
+              Err(e) => { eprintln!("Response failed for: '{:?}', error: '{}'", api, e); }
+            }
+          }
+            thread::sleep(Duration::from_secs(job.interval))
         }
       })
     );
@@ -132,6 +141,6 @@ fn main() {
 fn get(url: &String) -> Result<Value, Box<std::error::Error>> {
   let resp: Value = reqwest::get(url)?
     .json()?;
-  println!("{:#?}", resp);
+  //println!("{:#?}", resp);
   Ok(resp)
 }
