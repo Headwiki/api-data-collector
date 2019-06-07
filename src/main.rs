@@ -98,7 +98,10 @@ fn main() {
             match response {
               Ok(data) => {
                 let job_result = config::JobResult{ api_data: data, time: Utc::now() };
-                job.sender.send(job_result);
+                match job.sender.send(job_result) {
+                  Ok(()) => {},
+                  Err(e) => { eprintln!("Sender failed for: '{:?}', error: '{}'", api, e); }
+                }
               },
               Err(e) => { eprintln!("Response failed for: '{:?}', error: '{}'", api, e); }
             }
