@@ -1,5 +1,6 @@
 use serde::{Deserialize};
 use std::sync::mpsc::Sender;
+use std::time::SystemTime;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -10,12 +11,18 @@ pub struct Config {
 pub struct Api {
   pub name: String,
   pub url: String,
-  pub interval: u32
+  pub interval: u64
 }
 
 #[derive(Debug)]
 pub struct Job {
-  pub interval: u32,
-  pub sender: Sender<Api>,
+  pub interval: u64,
+  pub sender: Sender<JobResult>,
   pub apis: Vec<Api>
+}
+
+#[derive(Debug)]
+pub struct JobResult {
+  pub api: Api,
+  pub time: SystemTime
 }

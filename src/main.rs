@@ -6,16 +6,53 @@ use std::collections::HashMap;
 use serde_json::{Value};
 
 use mongodb::{Bson, bson, doc};
-use mongodb::{Client, ThreadedClient};
+use mongodb::ThreadedClient;
 use mongodb::db::ThreadedDatabase;
 
 use std::thread;
 use std::sync::mpsc;
+use std::time::{Duration, Instant, SystemTime};
 
+use futures::Future;
+use reqwest::r#async::{Client, Response};
+
+use futures::Stream;
+use futures::future::ok;
+use futures::stream::iter_ok;
+
+/* fn fetch() -> impl Future<Item=(), Error=()> {
+    let client = Client::new();
+
+    let json = |mut res : Response | {
+        res.json::<Value>()
+    };
+
+    let mut requests = Vec::new();
+
+    for _i in 0..2 {
+      requests.push(client
+            .get("https://httpbin.org/ip")
+            .send()
+            .and_then(json));
+    }
+
+
+     for res in requests {
+          res.map(|res1|{
+            println!("{:?}", res1);
+        })
+        .map_err(|err| {
+            println!("stdout error: {}", err);
+        })
+        }
+         
+} */
 
 fn main() {
 
-  // Notes for reading config file
+  //tokio::run(fetch());
+
+    // Notes for reading config file
   let contents = fs::read_to_string("config.json")
     .expect("Something went wrong reading the file");
 
@@ -27,7 +64,7 @@ fn main() {
   let mut jobs: Vec<Job> = Vec::new();
 
   // Create channel where jobs will send their data to receiver(main thread)
-  let (tx, rx): (mpsc::Sender<config::Api>, mpsc::Receiver<config::Api>) = mpsc::channel();
+  let (tx, rx): (mpsc::Sender<config::JobResult>, mpsc::Receiver<config::JobResult>) = mpsc::channel();
 
    // Populate vector of jobs
   'apis: for api in &config.apis {  
@@ -53,7 +90,12 @@ fn main() {
     threads.push(
       thread::spawn(move || {
         // Send 'api' data to receiver (as test for now)
-        job.sender.send(job.apis[0].to_owned()).unwrap();
+        //job.sender.send(job.apis[0].to_owned()).unwrap();
+        loop {
+          let job_result = config::JobResult{ api: job.apis[0].to_owned(), time: SystemTime::now() };
+          job.sender.send(job_result);
+          thread::sleep(Duration::from_secs(job.interval))
+        }
       })
     );
   }
@@ -61,10 +103,10 @@ fn main() {
   // Continuously listen for data from transitters/senders
   for received in rx {
     println!("Got: {:?}", received);
-  }
+  }  
 
 /*   // Connect to MongoDB
-  let client = Client::connect("localhost", 27017)
+  let client = mongodb::Client::connect("localhost", 27017)
     .expect("Failed to initialize standalone client.");
 
   
