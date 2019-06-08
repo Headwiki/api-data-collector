@@ -3,7 +3,7 @@ mod config;
 use std::fs;
 use config::{Config, Job};
 use std::collections::HashMap;
-use serde_json::{Value};
+use serde_json::{Value, json};
 
 use mongodb::{Bson, bson, doc};
 use mongodb::ThreadedClient;
@@ -123,8 +123,11 @@ fn main() {
     let coll = client.db(&config.db).collection(&received.api.name);
 
     // Convert json data to bson
-    let bson_data = bson::to_bson(&received.api_data).unwrap();
+    let bson_data = bson::to_bson(&config::MongoData{ time: received.time, api_data: received.api_data }).unwrap();
 
+/* 
+&received.api_data
+json!({"time": &received.time, data: &received.api_data}) */
 
     // Insert bson data into collection
     if let bson::Bson::Document(document) = bson_data {

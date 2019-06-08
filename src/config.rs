@@ -29,3 +29,9 @@ pub struct JobResult {
   pub api: Api,
   pub time: DateTime<Utc>
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct MongoData {
+  pub time: DateTime<Utc>,
+  pub api_data: Value
+}
