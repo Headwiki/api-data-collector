@@ -60,7 +60,11 @@ fn main() {
   let config: Config =
     serde_json::from_str(&contents).expect("JSON was not well-formatted");
 
-  println!("{:?}", config);
+  //println!("{:?}", config);
+
+     // Connect to MongoDB
+  let client = mongodb::Client::connect("localhost", 27017)
+    .expect("Failed to initialize standalone client.");
 
   let mut jobs: Vec<Job> = Vec::new();
 
@@ -97,7 +101,7 @@ fn main() {
             let response = get(&api.url);
             match response {
               Ok(data) => {
-                let job_result = config::JobResult{ api_data: data, time: Utc::now() };
+                let job_result = config::JobResult{ api_data: data, api: api.to_owned(), time: Utc::now() };
                 match job.sender.send(job_result) {
                   Ok(()) => {},
                   Err(e) => { eprintln!("Sender failed for: '{:?}', error: '{}'", api, e); }
@@ -115,29 +119,20 @@ fn main() {
   // Continuously listen for data from transitters/senders
   for received in rx {
     println!("Got: {:?}", received);
+      // Select collection
+    let coll = client.db(&config.db).collection(&received.api.name);
+
+    // Convert json data to bson
+    let bson_data = bson::to_bson(&received.api_data).unwrap();
+
+
+    // Insert bson data into collection
+    if let bson::Bson::Document(document) = bson_data {
+      coll.insert_one(document, None).unwrap();  // Insert into a MongoDB collection
+    } else {
+      println!("Error converting the BSON object into a MongoDB document");
+    };
   }  
-
-/*   // Connect to MongoDB
-  let client = mongodb::Client::connect("localhost", 27017)
-    .expect("Failed to initialize standalone client.");
-
-  
-  // Select collection
-  let coll = client.db("apis").collection("test");
-
-  // Get json data from an api
-  let json_data = get(&"https://httpbin.org/ip".to_owned()).unwrap();
-
-  // Convert json data to bson
-  let bson_data = bson::to_bson(&json_data).unwrap();
-
-
-  // Insert bson data into collection
-  if let bson::Bson::Document(document) = bson_data {
-    coll.insert_one(document, None).unwrap();  // Insert into a MongoDB collection
-  } else {
-    println!("Error converting the BSON object into a MongoDB document");
-  }; */
 }
 
 // Tries to parse given url as generic json value
