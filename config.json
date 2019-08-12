@@ -1,5 +1,5 @@
 {
-  "db": "api-data-collector",
+  "db": "api-data-collector-async",
   "apis": [
     { 
       "name": "DigitalOcean1",
