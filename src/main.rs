@@ -2,7 +2,7 @@
 mod config;
 
 use std::fs;
-use config::{Api, Config, Job};
+use config::{Api, Config};
 use serde_json::{Value};
 
 use mongodb::{bson};
@@ -11,11 +11,9 @@ use mongodb::db::ThreadedDatabase;
 
 use std::thread;
 use std::sync::mpsc;
-use std::time::{Duration};
 use chrono::prelude::*;
 
 use futures::executor::block_on;
-use futures::stream::*;
 
 fn main() {
 
@@ -34,50 +32,44 @@ fn main() {
   let client = mongodb::Client::connect("localhost", 27017)
     .expect("Failed to initialize standalone client.");
 
-  let mut jobs: Vec<Job> = Vec::new();
-
   // Create channel where jobs will send their data to receiver(main thread)
-  let (tx, rx): (mpsc::Sender<config::JobResult>, mpsc::Receiver<config::JobResult>) = mpsc::channel();
+  let (tx, rx): (mpsc::Sender<config::ApiResult>, mpsc::Receiver<config::ApiResult>) = mpsc::channel();
 
-   // Populate vector of jobs
-  'apis: for api in &config.apis {  
-    for job in &mut jobs {
-      if api.interval == job.interval {
-        // Add to job with same interval
-        job.apis.push(api.to_owned());
-        break 'apis;
-      }
-    }
+/*    // Populate vector of jobs
+  for api in &config.apis {  
+
       // Create a transmitter/sender which the job will use to send data outside of its own thread
       let new_sender = mpsc::Sender::clone(&tx);
 
       // Add new job
       jobs.push(Job{ interval: api.interval, sender: new_sender, apis: vec![api.to_owned()] });
-  }
+  } */
 
-  // Vector to hold the threads (might not be necessary)
-  let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
+  let mut cloned_apis: Vec<config::Api> = Vec::new();
 
-  // Generate a thread per job
-  for job in jobs {
-    threads.push(
-      thread::spawn(move || {
-        // Send 'api' data to receiver (as test for now)
-        //job.sender.send(job.apis[0].to_owned()).unwrap();
-        loop {
-          async {
-          let mut running = futures::stream::FuturesUnordered::new();
-          for api in job.apis.to_owned() {
-            running.push(async move { get_api(&api, &job) });
-          }
-          while let Some(_) = running.next().await {}
-          };
-
-          thread::sleep(Duration::from_secs(job.interval))
-        }
-      })
+  for api in &config.apis {
+    cloned_apis.push(
+      Api { 
+        name: api.name.clone(), 
+        url: api.url.clone(), 
+        interval: api.interval
+      }
     );
   }
+
+  thread::spawn(move || {
+    // TODO: loop over apis and execute in async fn
+      block_on(async move {
+        let mut running = futures::stream::FuturesUnordered::new();
+
+        for api in cloned_apis {
+          running.push( async move { start_api(api, mpsc::Sender::clone(&tx)) });
+        }
+
+        while let Some(_) = running.next().await {}
+      });
+  });
+
 
   // Continuously listen for data from transitters/senders
   for received in rx {
@@ -102,19 +94,19 @@ json!({"time": &received.time, data: &received.api_data}) */
 }
 
 // Tries to parse given url as generic json value
-fn get(url: &String) -> Result<Value, Box<std::error::Error>> {
+fn get(url: &String) -> Result<Value, Box<dyn std::error::Error>> {
   let resp: Value = reqwest::get(url)?
     .json()?;
   //println!("{:#?}", resp);
   Ok(resp)
 }
 
-async fn get_api<'a>(api: &'a Api, job: &'a Job) {
-  let response = get(&api.url);
+async fn start_api(api: Api, sender: mpsc::Sender<config::ApiResult>) {
+    let response = get(&api.url);
     match response {
       Ok(data) => {
-        let job_result = config::JobResult{ api_data: data, api: api.to_owned(), time: Utc::now() };
-          match job.sender.send(job_result) {
+        let api_result = config::ApiResult{ api_data: data, api: api.to_owned(), time: Utc::now() };
+          match sender.send(api_result) {
             Ok(()) => {},
             Err(e) => { eprintln!("Sender failed for: '{:?}', error: '{}'", api, e); }
           }
