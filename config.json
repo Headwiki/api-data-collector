@@ -1,5 +1,5 @@
 {
-  "db": "api-data-collector",
+  "db": "api-data-collectorV7",
   "apis": [
     { 
       "name": "DigitalOcean1",
