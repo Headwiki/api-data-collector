@@ -27,3 +27,9 @@ pub struct MongoData {
   pub time: DateTime<Utc>,
   pub api_data: Value
 }
+
+#[derive(Deserialize, Debug)]
+pub struct User {
+    pub id: i32,
+    pub name: String,
+}
