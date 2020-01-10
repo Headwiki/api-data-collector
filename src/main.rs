@@ -2,52 +2,52 @@
 
 mod config;
 
-/* use std::sync::mpsc;
-use std::thread; */
-
-use std::time::Duration;
 use bytes::buf::BufExt as _;
 use hyper::Client;
-use tokio::io::AsyncBufReadExt;
+use std::time::Duration;
 use tokio::prelude::*;
 use tokio::task;
 use tokio::time;
-
-/* use mongodb::db::ThreadedDatabase;
-use mongodb::ThreadedClient; */
 
 // A simple type alias so as to DRY.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  // Read config file
+  // Read config file asynchronously
   let mut config_file = tokio::fs::File::open("config.json").await?;
   let mut contents = vec![];
   config_file.read_to_end(&mut contents).await?;
 
+  // Parse config file as json
   let config: config::Config = serde_json::from_str(std::str::from_utf8(&contents).unwrap())
     .expect("JSON was not well-formatted");
 
+  // Vec to store all spawned tasks
   let mut tasks = vec![];
 
-  for api in config.apis.clone() {
-    //println!("Starting: {:?}", &api);
+  // Spawn all tasks
+  for api in config.apis {
     tasks.push(task::spawn(api_collector(api)));
   }
 
+  // Await tasks
+  //  Prevents application from terminating
+  //  In effect waiting tasks which will never finish
   for task in tasks {
-        task.await??;
-    }
+    task.await??
+  }
 
   Ok(())
 }
 async fn api_collector(api: config::Api) -> Result<()> {
+  // Set how often the collector should run (in seconds)
   let mut interval = time::interval(Duration::from_secs(api.interval));
   loop {
+    // Wait / Pause
     interval.tick().await;
-    //let response = fetch_json(api.url.parse().unwrap()).await;
 
+    // Get data from api, with error handling 
     match fetch_json(api.url.parse().unwrap()).await {
       Ok(data) => {
         let api_result = config::ApiResult {
@@ -61,25 +61,27 @@ async fn api_collector(api: config::Api) -> Result<()> {
         eprintln!("Response failed for: '{:?}', error: '{}'", api, e);
       }
     }
-
   }
 
+  // Function runs forever and will not return
+  #[allow(unreachable_code)]
   Ok(())
 }
 
+// Returns json data from given url
 async fn fetch_json(url: hyper::Uri) -> Result<serde_json::Value> {
   let client = Client::new();
 
-  // Fetch the url...
+  // Fetch the url
   let res = client.get(url).await?;
 
-  // asynchronously aggregate the chunks of the body
+  // Asynchronously aggregate the chunks of the body
   let body = hyper::body::aggregate(res).await?;
 
-  // try to parse as json with serde_json
-  let users = serde_json::from_reader(body.reader())?;
+  // Try to parse as json with serde_json
+  let data = serde_json::from_reader(body.reader())?;
 
-  Ok(users)
+  Ok(data)
 }
 
 /* fn main() {
