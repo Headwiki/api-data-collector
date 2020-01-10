@@ -40,6 +40,7 @@ async fn main() -> Result<()> {
 
   Ok(())
 }
+
 async fn api_collector(api: config::Api) -> Result<()> {
   // Set how often the collector should run (in seconds)
   let mut interval = time::interval(Duration::from_secs(api.interval));
