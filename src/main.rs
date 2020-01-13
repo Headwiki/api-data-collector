@@ -11,10 +11,8 @@ use std::time::Duration;
 use tokio::prelude::*;
 use tokio::task;
 use tokio::time;
+use tokio_postgres::NoTls;
 
-use tokio_postgres::{NoTls, Error};
-use native_tls::{Certificate, TlsConnector};
-use postgres_native_tls::MakeTlsConnector; 
 
 // A simple type alias so as to DRY.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -45,16 +43,6 @@ async fn main() -> Result<()> {
     task.await??
   } */
 
-  /* let mut file = tokio::fs::File::open("C:\\Users\\Headwiki\\.ssh\\db_cert.pem").await?;
-  let mut cert = vec![];
-  file.read_to_end(&mut cert).await?;
-  let cert = Certificate::from_pem(&cert)?;
-
-   let connector = TlsConnector::builder()
-    .add_root_certificate(cert)
-    .build()?;
-  let connector = MakeTlsConnector::new(connector);  */
-
   dotenv().ok();
     
   // Connect to the database.
@@ -73,20 +61,19 @@ async fn main() -> Result<()> {
     // so spawn it off to run on its own.
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("connection error: {}", e);
+            println!("connection error: {}", e);
         }
-    }).await?;
+    });
 
-    println!("Connected?");
-
-    /* // Now we can execute a simple statement that just returns its parameter.
-    let rows = client
-        .query("SELECT $1::TEXT", &[&"hello world"])
-        .await?;
-
-    // And then check that we got back the same string we sent over.
-    let value: &str = rows[0].get(0);
-    assert_eq!(value, "hello world"); */
+  let rows = client.query("CREATE TABLE test(
+    user_id serial PRIMARY KEY,
+    username VARCHAR (50) UNIQUE NOT NULL,
+    password VARCHAR (50) NOT NULL,
+    email VARCHAR (355) UNIQUE NOT NULL,
+    created_on TIMESTAMP NOT NULL
+    ,last_login TIMESTAMP);",
+    &[]
+  ).await?;                                                                                                                                                                                                                                    // And then check that we got back the same string we sent over.                                                        let value: &str = rows[0].get(0);                                                                                       assert_eq!(value, "hello world");
 
   Ok(())
 }
