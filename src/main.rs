@@ -2,19 +2,26 @@
 
 mod config;
 
+use std::env;
+
 use bytes::buf::BufExt as _;
+use dotenv::dotenv;
 use hyper::Client;
 use std::time::Duration;
 use tokio::prelude::*;
 use tokio::task;
 use tokio::time;
 
+use tokio_postgres::{NoTls, Error};
+use native_tls::{Certificate, TlsConnector};
+use postgres_native_tls::MakeTlsConnector; 
+
 // A simple type alias so as to DRY.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  // Read config file asynchronously
+  /* // Read config file asynchronously
   let mut config_file = tokio::fs::File::open("config.json").await?;
   let mut contents = vec![];
   config_file.read_to_end(&mut contents).await?;
@@ -36,7 +43,50 @@ async fn main() -> Result<()> {
   //  In effect waiting tasks which will never finish
   for task in tasks {
     task.await??
-  }
+  } */
+
+  /* let mut file = tokio::fs::File::open("C:\\Users\\Headwiki\\.ssh\\db_cert.pem").await?;
+  let mut cert = vec![];
+  file.read_to_end(&mut cert).await?;
+  let cert = Certificate::from_pem(&cert)?;
+
+   let connector = TlsConnector::builder()
+    .add_root_certificate(cert)
+    .build()?;
+  let connector = MakeTlsConnector::new(connector);  */
+
+  dotenv().ok();
+    
+  // Connect to the database.
+    let (client, connection) =
+        tokio_postgres::connect(
+          &format!("postgres://{user}:{password}@{host}:{port}/{dbname}",
+            user = env::var("PG_USER")?,
+            password = env::var("PG_PASS")?,
+            host = env::var("PG_HOST")?,
+            port = env::var("PG_PORT")?,
+            dbname = env::var("PG_DB_NAME")?,
+          ), 
+        NoTls).await?;
+
+    // The connection object performs the actual communication with the database,
+    // so spawn it off to run on its own.
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("connection error: {}", e);
+        }
+    }).await?;
+
+    println!("Connected?");
+
+    /* // Now we can execute a simple statement that just returns its parameter.
+    let rows = client
+        .query("SELECT $1::TEXT", &[&"hello world"])
+        .await?;
+
+    // And then check that we got back the same string we sent over.
+    let value: &str = rows[0].get(0);
+    assert_eq!(value, "hello world"); */
 
   Ok(())
 }
