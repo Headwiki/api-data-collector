@@ -11,8 +11,7 @@ use std::time::Duration;
 use tokio::prelude::*;
 use tokio::task;
 use tokio::time;
-use tokio_postgres::NoTls;
-
+use sqlx;
 
 // A simple type alias so as to DRY.
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -44,39 +43,31 @@ async fn main() -> Result<()> {
   } */
 
   dotenv().ok();
-    
-  // Connect to the database.
-    let (client, connection) =
-        tokio_postgres::connect(
-          &format!("postgres://{user}:{password}@{host}:{port}/{dbname}",
-            user = env::var("PG_USER")?,
-            password = env::var("PG_PASS")?,
-            host = env::var("PG_HOST")?,
-            port = env::var("PG_PORT")?,
-            dbname = env::var("PG_DB_NAME")?,
-          ), 
-        NoTls).await?;
+  
+  let pool = sqlx::PgPool::new(&env::var("DATABASE_URL")?).await?;
 
-    // The connection object performs the actual communication with the database,
-    // so spawn it off to run on its own.
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            println!("connection error: {}", e);
-        }
-    });
+  let mut tx = pool.begin().await.unwrap();
 
-  let rows = client.query("CREATE TABLE test(
+  let rec = sqlx::query!(
+    r#"
+    CREATE TABLE test(
     user_id serial PRIMARY KEY,
     username VARCHAR (50) UNIQUE NOT NULL,
     password VARCHAR (50) NOT NULL,
     email VARCHAR (355) UNIQUE NOT NULL,
-    created_on TIMESTAMP NOT NULL
-    ,last_login TIMESTAMP);",
-    &[]
-  ).await?;                                                                                                                                                                                                                                    // And then check that we got back the same string we sent over.                                                        let value: &str = rows[0].get(0);                                                                                       assert_eq!(value, "hello world");
+    created_on TIMESTAMP NOT NULL,
+    last_login TIMESTAMP)
+    "#)
+    .execute(&mut tx)
+    .await
+    .unwrap();           
+
+    // Explicitly commit (otherwise this would rollback on drop)
+    tx.commit().await.unwrap();                                                                                                                                                                                                                         // And then check that we got back the same string we sent over.                                                        let value: &str = rows[0].get(0);                                                                                       assert_eq!(value, "hello world");
 
   Ok(())
 }
+
 
 async fn api_collector(api: config::Api) -> Result<()> {
   // Set how often the collector should run (in seconds)
@@ -105,6 +96,14 @@ async fn api_collector(api: config::Api) -> Result<()> {
   #[allow(unreachable_code)]
   Ok(())
 }
+
+/*
+TODO:
+  Implement https support
+  Implement save to db
+  maybe look at async loop to check if its idiomatic
+  check memory usage when db is implemented
+ */
 
 // Returns json data from given url
 async fn fetch_json(url: hyper::Uri) -> Result<serde_json::Value> {
@@ -237,10 +236,4 @@ struct User {
     name: String,
 } */
 
-/*
-TODO:
-  Implement https support
-  Implement save to db
-  maybe look at async loop to check if its idiomatic
-  check memory usage when db is implemented
- */
+

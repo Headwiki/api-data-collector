@@ -13,5 +13,5 @@ hyper = "0.13.1"
 reqwest = "0.9.19"
 serde = { version = "1.0.98", features = ["derive"] }
 serde_json = "1.0.40"
+sqlx = { version = "0.2", default-features = false, features = [ "runtime-tokio", "postgres", "macros" ] }
 tokio = { version = "0.2.8", features = ["full"] }
-tokio-postgres = "0.5.1"
